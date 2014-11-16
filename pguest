@@ -95,6 +95,7 @@ if __name__ == "__main__":
                 for i in range(0, 5):
                     time.sleep(1)
                     sys.stdout.write(".")
+                    sys.stdout.flush()
                 if check_google() == -1:
                     print " but still can't access google.com"
                     continue
