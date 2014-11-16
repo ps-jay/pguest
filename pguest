@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+# vi: ft=python
+
+import argparse
+import requests
+import sys
+import time
+
+# User data
+global USERNAME
+global PASSWORD
+
+
+# Check google.com
+def check_google():
+    try:
+        check_google = requests.get(
+            'http://google.com/',
+            timeout=10,
+            verify=False,
+        )
+
+        if check_google.headers['server'] == 'gws':
+            return 0
+
+    except Exception, e:
+        print "Exception doing google.com request: %s" % str(e)
+        return 1
+
+    return -1
+
+
+# Attempt PGuest auth
+def pguest_auth():
+    try:
+        print "Google server is not 'gws', attempting PGuest auth"
+
+        pguest_form = {
+            "username":      USERNAME,
+            "password":      PASSWORD,
+            "buttonClicked": 4,
+            "err_flag":      0,
+            "err_msg":       "",
+            "info_flag":     0,
+            "info_msg":      "",
+            "redirect_url":  "",
+        }
+
+        pguest_attempt = requests.post(
+            'https://1.1.1.1/login.html',
+            data=pguest_form,
+            timeout=10,
+            verify=False,
+        )
+
+        if pguest_attempt.status_code == 200:
+            return 0
+
+        return -1
+
+    except Exception, e:
+        print "Exception doing PGuest authentication: %s" % str(e)
+        return 1
+
+
+if __name__ == "__main__":
+
+    # Parse args
+    parser = argparse.ArgumentParser(
+        description="Check if google is accessable,"
+            " else authenticate to PGuest",
+    )
+    parser.add_argument('-u', '--username',
+        required=True,
+        help='The username for authentication',
+    )
+    parser.add_argument('-p', '--password',
+        required=True,
+        help='The password for authentication',
+    )
+    args = parser.parse_args()
+
+    USERNAME = args.username
+    PASSWORD = args.password
+
+    while True:
+        google_result = check_google()
+        if google_result == -1:
+            print ""    # Adds \n to series of \u2713 (tick) characters
+            pguest_result = pguest_auth()
+            if pguest_result == -1:
+                print "PGuest didn't like the POST"
+            elif pguest_result == 0:
+                sys.stdout.write("PGuest auth returned 200")
+                for i in range(0, 5):
+                    time.sleep(1)
+                    sys.stdout.write(".")
+                if check_google() == -1:
+                    print " but still can't access google.com"
+                    continue
+                else:
+                    print ""
+        elif google_result == 0:
+            sys.stdout.write(u'\u2713 ')
+            sys.stdout.flush()
+
+        time.sleep(20)
