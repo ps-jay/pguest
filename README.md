@@ -6,6 +6,7 @@ PGuest is a script to authenticate with the PGuest Bluecoat appliance.
 Usage
 -----
 
+```
 usage: pguest [-h] -u USERNAME -p PASSWORD
 
 Check if google is accessable, else authenticate to PGuest
@@ -16,3 +17,4 @@ optional arguments:
                         The username for authentication
   -p PASSWORD, --password PASSWORD
                         The password for authentication
+```
