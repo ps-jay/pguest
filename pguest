@@ -71,17 +71,35 @@ if __name__ == "__main__":
             " else authenticate to PGuest",
     )
     parser.add_argument('-u', '--username',
-        required=True,
         help='The username for authentication',
     )
     parser.add_argument('-p', '--password',
-        required=True,
         help='The password for authentication',
+    )
+    parser.add_argument('-c', '--config',
+        help='Path to username and password',
     )
     args = parser.parse_args()
 
-    USERNAME = args.username
-    PASSWORD = args.password
+    if args.config:
+        USERNAME, PASSWORD = "", ""
+        try:
+            with open(args.config) as f:
+                for line in f:
+                    name, var = line.partition("=")[::2]
+                    if name.lower().strip() == "username":
+                        USERNAME = var.strip()
+                    elif name.lower().strip() == "password":
+                        PASSWORD = var.strip()
+            if not USERNAME and not PASSWORD:
+                print "Invalid authentication file: %s" % args.config
+                exit(1)
+        except IOError:
+            print "Config file %s does not exist" % args.config 
+            exit(1)
+    else:
+        USERNAME = args.username
+        PASSWORD = args.password
 
     while True:
         google_result = check_google()
