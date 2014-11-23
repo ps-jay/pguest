@@ -25,7 +25,7 @@ def check_google():
             return 0
 
     except Exception, e:
-        print "Exception doing google.com request: %s" % str(e)
+        # print "Exception doing google.com request: %s" % str(e)
         return 1
 
     return -1
@@ -135,6 +135,9 @@ if __name__ == "__main__":
                 continue
         elif google_result == 0:
             sys.stdout.write(u'\u2713 ')
+            sys.stdout.flush()
+        else:
+            sys.stdout.write('? ')
             sys.stdout.flush()
 
         time.sleep(5)  # XXX Todo: Make configurable
