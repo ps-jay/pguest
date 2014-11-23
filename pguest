@@ -128,13 +128,10 @@ if __name__ == "__main__":
                     time.sleep(1)
                     sys.stdout.write(".")
                     sys.stdout.flush()
-                if check_google() == -1:
-                    print " but still can't access google.com"
-                    continue
-                else:
-                    print ""
+                print ""
+                continue
         elif google_result == 0:
             sys.stdout.write(u'\u2713 ')
             sys.stdout.flush()
 
-        time.sleep(20)
+        time.sleep(5)  # XXX Todo: Make configurable
