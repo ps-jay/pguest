@@ -90,10 +90,12 @@ if __name__ == "__main__":
     PASSWORD = None
     SOURCE = None
 
-    if os.path.isfile(args.config):
+    config_file = os.path.expanduser(args.config)
+
+    if os.path.isfile(config_file):
         SOURCE = "file"
         try:
-            with open(args.config) as f:
+            with open(config_file) as f:
                 for line in f:
                     name, var = line.partition("=")[::2]
                     if name.lower().strip() == "username":
@@ -101,7 +103,7 @@ if __name__ == "__main__":
                     elif name.lower().strip() == "password":
                         PASSWORD = var.strip()
         except IOError:
-            print "IOError on reading config file %s" % args.config
+            print "IOError on reading config file %s" % config_file
             exit(1)
     else:
         SOURCE = "args"
@@ -111,7 +113,7 @@ if __name__ == "__main__":
     if (USERNAME is None) or (PASSWORD is None):
         sys.stdout.write("Incomplete credentials specified by %s" % SOURCE)
         if SOURCE == "file":
-            print ": %s" % args.config
+            print ": %s" % config_file
         else:
             print ""
         exit(1)
