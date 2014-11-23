@@ -17,7 +17,7 @@ def check_google():
     try:
         check_google = requests.get(
             'http://google.com/',
-            timeout=10,
+            timeout=5,
             verify=False,
         )
 
