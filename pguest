@@ -2,6 +2,7 @@
 # vi: ft=python
 
 import argparse
+import os
 import requests
 import sys
 import time
@@ -72,17 +73,24 @@ if __name__ == "__main__":
     )
     parser.add_argument('-u', '--username',
         help='The username for authentication',
+        default=None,
     )
     parser.add_argument('-p', '--password',
         help='The password for authentication',
+        default=None,
     )
     parser.add_argument('-c', '--config',
         help='Path to username and password',
+        default='~/.pguest',
     )
     args = parser.parse_args()
 
-    if args.config:
-        USERNAME, PASSWORD = "", ""
+    USERNAME = None
+    PASSWORD = None
+    SOURCE = None
+
+    if os.path.isfile(args.config):
+        SOURCE = "file"
         try:
             with open(args.config) as f:
                 for line in f:
@@ -91,15 +99,21 @@ if __name__ == "__main__":
                         USERNAME = var.strip()
                     elif name.lower().strip() == "password":
                         PASSWORD = var.strip()
-            if not USERNAME and not PASSWORD:
-                print "Invalid authentication file: %s" % args.config
-                exit(1)
         except IOError:
-            print "Config file %s does not exist" % args.config 
+            print "IOError on reading config file %s" % args.config
             exit(1)
     else:
+        SOURCE = "args"
         USERNAME = args.username
         PASSWORD = args.password
+
+    if (USERNAME is None) or (PASSWORD is None):
+        sys.stdout.write("Incomplete credentials specified by %s" % SOURCE)
+        if SOURCE == "file":
+            print ": %s" % args.config
+        else:
+            print ""
+        exit(1)
 
     while True:
         google_result = check_google()
