@@ -121,7 +121,7 @@ if __name__ == "__main__":
     while True:
         google_result = check_google()
         if google_result == -1:
-            print u'\u2717 @ %s' % time.strftime('%Y-%m-%d %H:%M:%S')
+            print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
             pguest_result = pguest_auth()
             if pguest_result == -1:
                 print "PGuest didn't like the POST"
