@@ -71,6 +71,7 @@ if __name__ == "__main__":
         description="Check if google is accessable,"
             " else authenticate to PGuest",
     )
+    # XXX Todo: make -u and -p mutually exclusive to -c
     parser.add_argument('-u', '--username',
         help='The username for authentication',
         default=None,
