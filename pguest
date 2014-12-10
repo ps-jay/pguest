@@ -14,6 +14,7 @@ requests.packages.urllib3.disable_warnings()
 
 # Constants
 SLEEP_TIME = 5
+DEBUG_TIME = 120
 TIMEOUT = 5
 ERROR_BACKOFF = 60
 
@@ -23,7 +24,7 @@ global PASSWORD
 
 
 # Check google.com
-def check_google():
+def check_google(debug=False):
     try:
         check_google = requests.get(
             'http://google.com/',
@@ -35,14 +36,20 @@ def check_google():
             return 0
 
     except Exception, e:
-        # print "Exception doing google.com request: %s" % str(e)
+        if debug:
+            print ""
+            print "Exception doing google.com request: %s" % str(e)
         return 1
+
+    if debug:
+        print ""
+        print "google.com server header: %s" % check_google.headers['server']
 
     return -1
 
 
 # Attempt PGuest auth
-def pguest_auth():
+def pguest_auth(debug=False):
     try:
         print "Google server is not 'gws', attempting PGuest auth"
 
@@ -66,7 +73,14 @@ def pguest_auth():
 
         content = pguest_attempt.text
 
+        if debug:
+            print ""
+            print "PGUEST DEBUG INFO:"
+            print "HTTP Status Code: %d" % pguest_attempt.status_code
+            print "HTTP Headers: %s" % pguest_attempt.headers
+
         if pguest_attempt.status_code == 200:
+
             # Scan for failed login
             for line in content.split("\n"):
                 if line == """<INPUT TYPE="hidden" NAME="err_flag" SIZE="16" MAXLENGTH="15" VALUE="1">""":
@@ -81,7 +95,9 @@ def pguest_auth():
         return -1
 
     except Exception, e:
-        print "Exception doing PGuest authentication: %s" % str(e)
+        if debug:
+            print ""
+            print "Exception doing PGuest authentication: %s" % str(e)
         return 1
 
 
@@ -140,6 +156,8 @@ if __name__ == "__main__":
         exit(1)
 
     first_time = True
+    last_auth = 0
+    debug = False
 
     while True:
         if first_time:
@@ -151,14 +169,29 @@ if __name__ == "__main__":
             print u" !: PGuest authentication failed (non-200 HTTP response)"
             print u" ?: Couldn't reach google.com, or the PGuest login page"
             print ""
+        elif (time.time() - last_auth) > DEBUG_TIME:
+            debug = False
+            print ""
+            print "Last auth was more than %d seconds ago," \
+                " disabling extra debuging information." % DEBUG_TIME
 
-        google_result = check_google()
+        google_result = check_google(debug=debug)
         if google_result == -1:
             print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
-            pguest_result = pguest_auth()
+
+            this_auth = time.time()
+            if (this_auth - last_auth) < DEBUG_TIME:
+                debug = True
+                print ""
+                print "Last auth was less than %d seconds ago," \
+                    " showing extra debuging information." % DEBUG_TIME
+
+            pguest_result = pguest_auth(debug=debug)
             if pguest_result == -1:
-                print "PGuest didn't like the POST"
+                sys.stdout.write('! ')
+                sys.stdout.flush()
             elif pguest_result == 0:
+                last_auth = time.time()
                 sys.stdout.write("PGuest auth returned 200")
                 for i in range(0, SLEEP_TIME):
                     time.sleep(1)
