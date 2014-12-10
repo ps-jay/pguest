@@ -8,8 +8,6 @@ import sys
 import time
 
 # Remove untrusted SSL warnings
-import urllib3
-urllib3.disable_warnings()
 requests.packages.urllib3.disable_warnings()
 
 # Constants
