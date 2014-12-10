@@ -15,6 +15,7 @@ requests.packages.urllib3.disable_warnings()
 # Constants
 SLEEP_TIME = 5
 TIMEOUT = 5
+ERROR_BACKOFF = 60
 
 # User data
 global USERNAME
@@ -63,7 +64,18 @@ def pguest_auth():
             verify=False,
         )
 
+        content = pguest_attempt.text
+
         if pguest_attempt.status_code == 200:
+            # Scan for failed login
+            for line in content.split("\n"):
+                if line == """<INPUT TYPE="hidden" NAME="err_flag" SIZE="16" MAXLENGTH="15" VALUE="1">""":
+                    print ""
+                    print "Login failed!"
+                    print "Your credentials are incorrect or expired."
+                    print ""
+                    time.sleep(ERROR_BACKOFF)
+
             return 0
 
         return -1
