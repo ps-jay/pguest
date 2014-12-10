@@ -12,6 +12,10 @@ import urllib3
 urllib3.disable_warnings()
 requests.packages.urllib3.disable_warnings()
 
+# Constants
+SLEEP_TIME = 5
+TIMEOUT = 5
+
 # User data
 global USERNAME
 global PASSWORD
@@ -22,7 +26,7 @@ def check_google():
     try:
         check_google = requests.get(
             'http://google.com/',
-            timeout=5,
+            timeout=TIMEOUT,
             verify=False,
         )
 
@@ -132,7 +136,7 @@ if __name__ == "__main__":
                 print "PGuest didn't like the POST"
             elif pguest_result == 0:
                 sys.stdout.write("PGuest auth returned 200")
-                for i in range(0, 5):
+                for i in range(0, SLEEP_TIME):
                     time.sleep(1)
                     sys.stdout.write(".")
                     sys.stdout.flush()
@@ -145,4 +149,4 @@ if __name__ == "__main__":
             sys.stdout.write('? ')
             sys.stdout.flush()
 
-        time.sleep(5)  # XXX Todo: Make configurable
+        time.sleep(SLEEP_TIME)  # XXX Todo: Make configurable
