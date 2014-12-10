@@ -127,7 +127,19 @@ if __name__ == "__main__":
             print ""
         exit(1)
 
+    first_time = True
+
     while True:
+        if first_time:
+            first_time = False
+            print ""
+            print "Legend:"
+            print u" \u2713: Everything is fine"
+            print u" \u2717: PGuest authentication required"
+            print u" !: PGuest authentication failed (non-200 HTTP response)"
+            print u" ?: Couldn't reach google.com, or the PGuest login page"
+            print ""
+
         google_result = check_google()
         if google_result == -1:
             print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
