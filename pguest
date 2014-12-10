@@ -167,7 +167,10 @@ if __name__ == "__main__":
             print u" !: PGuest authentication failed (non-200 HTTP response)"
             print u" ?: Couldn't reach google.com, or the PGuest login page"
             print ""
-        elif (time.time() - last_auth) > DEBUG_TIME:
+        elif (
+                ((time.time() - last_auth) > DEBUG_TIME) and
+                (debug)
+        ):
             debug = False
             print ""
             print "Last auth was more than %d seconds ago," \
@@ -177,8 +180,10 @@ if __name__ == "__main__":
         if google_result == -1:
             print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
 
-            this_auth = time.time()
-            if (this_auth - last_auth) < DEBUG_TIME:
+            if (
+                    ((time.time() - last_auth) < DEBUG_TIME) and
+                    (not debug)
+            ):
                 debug = True
                 print ""
                 print "Last auth was less than %d seconds ago," \
