@@ -82,11 +82,7 @@ def pguest_auth(debug=False):
             # Scan for failed login
             for line in content.split("\n"):
                 if line == """<INPUT TYPE="hidden" NAME="err_flag" SIZE="16" MAXLENGTH="15" VALUE="1">""":
-                    print ""
-                    print "Login failed!"
-                    print "Your credentials are incorrect or expired."
-                    print ""
-                    time.sleep(ERROR_BACKOFF)
+                    return 2
 
             return 0
 
@@ -201,6 +197,13 @@ if __name__ == "__main__":
                     sys.stdout.write(".")
                     sys.stdout.flush()
                 print ""
+                continue
+            elif pguest_result == 2:
+                print ""
+                print "Login failed!"
+                print "Your credentials are incorrect or expired."
+                print ""
+                time.sleep(ERROR_BACKOFF)
                 continue
         elif google_result == 0:
             sys.stdout.write(u'\u2713 ')
