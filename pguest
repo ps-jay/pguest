@@ -21,6 +21,7 @@ ERROR_BACKOFF = 60
 global USERNAME
 global PASSWORD
 
+
 def sig_handle(signal, frame):
     sys.exit(0)
 
@@ -34,18 +35,31 @@ def check_google(debug=False):
             verify=False,
         )
 
-        if check_google.headers['server'] == 'gws':
-            return 0
+        if 'server' in check_google.headers:
+            # Valid google.com response
+            if check_google.headers['server'] == 'gws':
+                return 0
+
+        if 'location' in check_google.headers:
+            # Un-auth'd Pguest response
+            if check_google.headers['location'] == \
+                    'https://1.1.1.1/login.html?redirect=google.com/':
+                return -1
 
     except Exception, e:
+        # DNS fail?, No Internet access?, etc.
         if debug:
             print ""
             print "Exception doing google.com request: %s" % str(e)
         return 1
 
     if debug:
-        print ""
-        print "google.com server header: %s" % check_google.headers['server']
+        # If 'server' isn't == 'gws', then what is it?
+        if 'server' in check_google.headers:
+            print ""
+            print "google.com server header: %s" % (
+                check_google.headers['server']
+            )
 
     return -1
 
