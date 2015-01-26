@@ -6,6 +6,7 @@ import os
 import requests
 import sys
 import time
+import signal
 
 # Remove untrusted SSL warnings
 requests.packages.urllib3.disable_warnings()
@@ -19,6 +20,9 @@ ERROR_BACKOFF = 60
 # User data
 global USERNAME
 global PASSWORD
+
+def sig_handle(signal, frame):
+    sys.exit(0)
 
 
 # Check google.com
@@ -96,6 +100,8 @@ def pguest_auth(debug=False):
 
 
 if __name__ == "__main__":
+
+    signal.signal(signal.SIGINT, sig_handle)
 
     # Parse args
     parser = argparse.ArgumentParser(
