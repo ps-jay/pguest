@@ -21,6 +21,7 @@ ERROR_BACKOFF = 60
 
 DEFAULT_WIFI_INTERFACE = 'en0'
 DEFAULT_WIFI_SERVICE = 'Wi-Fi'
+DEFAULT_WIFI_SSID = 'PGuest'
 DEFAULT_SPOOF_TIMEOUT = 60  # 1min
 
 AIRPORT_PATH = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
@@ -226,6 +227,10 @@ if __name__ == "__main__":
         help='The password for authentication',
         default=None,
     )
+    parser.add_argument('-n', '--wifi-ssid',
+        help="PGuest SSID",
+        default=DEFAULT_WIFI_SSID,
+    )
     parser.add_argument('-i', '--wifi-interface',
         help='Wi-Fi interface name',
         default=DEFAULT_WIFI_INTERFACE,
@@ -252,6 +257,7 @@ if __name__ == "__main__":
     PASSWORD = None
     WIFI_INTERFACE = DEFAULT_WIFI_INTERFACE
     WIFI_SERVICE = DEFAULT_WIFI_SERVICE
+    WIFI_SSID = DEFAULT_WIFI_SSID
     SPOOF_TIMEOUT = DEFAULT_SPOOF_TIMEOUT
     SOURCE = None
 
@@ -273,6 +279,8 @@ if __name__ == "__main__":
                         WIFI_INTERFACE = var
                     elif name == 'wifi_service':
                         WIFI_SERVICE = var
+                    elif name == 'wifi_ssid':
+                        WIFI_SSID = var
                     elif name == 'spoof_timeout':
                         SPOOF_TIMEOUT = var
         except IOError:
@@ -283,7 +291,8 @@ if __name__ == "__main__":
         USERNAME = args.username
         PASSWORD = args.password
         WIFI_INTERFACE = args.wifi_interface
-        WIFI_INTERFACE = args.wifi_service
+        WIFI_SERVICE = args.wifi_service
+        WIFI_SSID = args.wifi_ssid
 
     if (USERNAME is None) or (PASSWORD is None):
         sys.stdout.write("Incomplete credentials specified by %s" % SOURCE)
@@ -317,49 +326,53 @@ if __name__ == "__main__":
             print "Last auth was more than %d seconds ago," \
                 " disabling extra debuging information." % DEBUG_TIME
 
-        google_result = check_google(debug=debug)
-        if google_result == -1:
-            print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
+        if wifi_status(WIFI_SERVICE).get('SSID', None) == WIFI_SSID:
+            google_result = check_google(debug=debug)
+            if google_result == -1:
+                print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
 
-            if (
-                    ((time.time() - last_auth) < DEBUG_TIME) and
-                    (not debug)
-            ):
-                debug = True
-                print ""
-                print "Last auth was less than %d seconds ago," \
-                    " showing extra debuging information." % DEBUG_TIME
+                if (
+                        ((time.time() - last_auth) < DEBUG_TIME) and
+                        (not debug)
+                ):
+                    debug = True
+                    print ""
+                    print "Last auth was less than %d seconds ago," \
+                        " showing extra debuging information." % DEBUG_TIME
 
-            pguest_result = pguest_auth(debug=debug)
-            if pguest_result == -1:
-                sys.stdout.write('! ')
-                sys.stdout.flush()
-            elif pguest_result == 0:
-                last_auth = time.time()
-                sys.stdout.write("PGuest auth returned 200")
-                for i in range(0, SLEEP_TIME):
-                    time.sleep(1)
-                    sys.stdout.write(".")
+                pguest_result = pguest_auth(debug=debug)
+                if pguest_result == -1:
+                    sys.stdout.write('! ')
                     sys.stdout.flush()
-                print ""
-                continue
-            elif pguest_result == 2:
-                print ""
-                print "Login failed!"
-                print "Your credentials are incorrect or expired."
-                print ""
-                time.sleep(ERROR_BACKOFF)
-                continue
-        elif google_result == 0:
-            sys.stdout.write(u'\u2713 ')
-            sys.stdout.flush()
-        else:
-            sys.stdout.write('? ')
-            sys.stdout.flush()
+                elif pguest_result == 0:
+                    last_auth = time.time()
+                    sys.stdout.write("PGuest auth returned 200")
+                    for i in range(0, SLEEP_TIME):
+                        time.sleep(1)
+                        sys.stdout.write(".")
+                        sys.stdout.flush()
+                    print ""
+                    continue
+                elif pguest_result == 2:
+                    print ""
+                    print "Login failed!"
+                    print "Your credentials are incorrect or expired."
+                    print ""
+                    time.sleep(ERROR_BACKOFF)
+                    continue
+            elif google_result == 0:
+                sys.stdout.write(u'\u2713 ')
+                sys.stdout.flush()
+            else:
+                sys.stdout.write('? ')
+                sys.stdout.flush()
 
-            time_since_spoof = time.time() - last_spoof
-            if not args.no_mac_spoof and time_since_spoof > SPOOF_TIMEOUT:
-                if fix_ip(WIFI_INTERFACE, WIFI_SERVICE):
-                     last_spoof = time.time()
+                time_since_spoof = time.time() - last_spoof
+                if not args.no_mac_spoof and time_since_spoof > SPOOF_TIMEOUT:
+                    if fix_ip(WIFI_INTERFACE, WIFI_SERVICE):
+                         last_spoof = time.time()
+        else:
+            sys.stdout.write('- ')
+            sys.stdout.flush()
 
         time.sleep(SLEEP_TIME)  # XXX Todo: Make configurable
