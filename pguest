@@ -316,6 +316,7 @@ if __name__ == "__main__":
             print u" \u2717: PGuest authentication required"
             print u" !: PGuest authentication failed (non-200 HTTP response)"
             print u" ?: Couldn't reach google.com, or the PGuest login page"
+            print u" -: Not connected to PGuest SSID"
             print ""
         elif (
                 ((time.time() - last_auth) > DEBUG_TIME) and
