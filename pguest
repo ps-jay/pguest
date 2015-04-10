@@ -19,7 +19,7 @@ DEBUG_TIME = 120
 TIMEOUT = 5
 ERROR_BACKOFF = 60
 
-DEFAULT_WIFI_INTERFACE = 'en0 Wi-Fi'
+DEFAULT_WIFI_INTERFACE = 'en0 ether'
 
 # User data
 global USERNAME
@@ -71,7 +71,7 @@ def check_google(debug=False):
 # Change to a new MAC address
 def spoof_mac(interface_name):
     new_mac = ':'.join([
-        hex(random.randint(0,255))[-2:]
+        '%02x' % random.randint(0,255)
         for i in range(6)
     ])
     command_call = ['ifconfig'] + interface_name.split(' ', 1) + [new_mac]
@@ -79,9 +79,7 @@ def spoof_mac(interface_name):
         subprocess.check_call(command_call)
         return True
     except subprocess.CalledProcessError, e:
-        print("Unable to spoof MAC address by calling %s: %s" % (
-            command_call, e
-        ))
+        print("Unable to spoof MAC address: %s" % e)
         return False
 
 
