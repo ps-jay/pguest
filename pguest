@@ -3,7 +3,9 @@
 
 import argparse
 import os
+import random
 import requests
+import subprocess
 import sys
 import time
 import signal
@@ -16,6 +18,13 @@ SLEEP_TIME = 5
 DEBUG_TIME = 120
 TIMEOUT = 5
 ERROR_BACKOFF = 60
+
+DEFAULT_WIFI_INTERFACE = 'en0'
+DEFAULT_WIFI_SERVICE = 'Wi-Fi'
+DEFAULT_WIFI_SSID = 'PGuest'
+DEFAULT_SPOOF_TIMEOUT = 60  # 1min
+
+AIRPORT_PATH = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
 
 # User data
 global USERNAME
@@ -62,6 +71,93 @@ def check_google(debug=False):
             )
 
     return -1
+
+
+# Split lines at : chars, returning a dict items list
+def dict_items_from_properties(text):
+    return [
+        [part.strip() for part in line.split(':', 1)]
+        for line in text.split('\n')
+        if ':' in line
+    ]
+
+
+# Call a command, splitting lines at : chars, returning a dict items list
+def dict_items_from_command(command_call, name):
+    try:
+        return dict_items_from_properties(
+            subprocess.check_output(command_call)
+        )
+    except subprocess.CalledProcessError, e:
+        print "Unable to get %s: %s" % (name, e)
+        return None
+
+
+# Get Wi-Fi details
+def wifi_status(service_name):
+    dict_items = []
+
+    more_dict_items = dict_items_from_command(
+        [AIRPORT_PATH, '-I'],
+        'physical Wi-Fi details',
+    )
+    if more_dict_items:
+        dict_items += more_dict_items
+
+    more_dict_items = dict_items_from_command(
+        ['networksetup', '-getinfo', service_name],
+        'TCP protocol details',
+    )
+    if more_dict_items:
+        dict_items += more_dict_items
+
+    out_dict = dict(dict_items)
+    for key, value in dict_items:
+        if value in ('none', '(null)'):
+            out_dict[key] = None
+
+    return out_dict
+
+
+# Change to a new MAC address
+def spoof_mac(interface_name):
+    new_mac = ':'.join([
+        '%02x' % random.randint(0,255)
+        for i in range(6)
+    ])
+    command_call = ['ifconfig', interface_name, 'ether', new_mac]
+    try:
+        subprocess.check_call(command_call)
+        return True
+    except subprocess.CalledProcessError, e:
+        print "Unable to spoof MAC address: %s" % e
+        return False
+
+# Turn Wi-Fi off and on again
+def bounce_wifi(interface_name):
+    command_call_prefix = ['networksetup', '-setairportpower', interface_name]
+    try:
+        for wifi_status in ('off', 'on'):
+            subprocess.check_call(command_call_prefix + [wifi_status])
+    except subprocess.CalledProcessError, e:
+        print "Unable to turn Wi-Fi %s: %s" % (wifi_status, e)
+        return False
+
+    return True
+
+
+# Spoop MAC and bounce when there's no route set
+def fix_ip(interface_name, service_name):
+    wifi_status_dict = wifi_status(service_name)
+    wifi_running = wifi_status_dict.get('state', None) == 'running'
+    wifi_no_route = wifi_status_dict.get('Router', None) is None
+    if wifi_running and wifi_no_route:
+        spoofed = spoof_mac(interface_name)
+        bounced = bounce_wifi(interface_name)
+
+        return spoofed and bounced
+
+    return False
 
 
 # Attempt PGuest auth
@@ -131,6 +227,26 @@ if __name__ == "__main__":
         help='The password for authentication',
         default=None,
     )
+    parser.add_argument('-n', '--wifi-ssid',
+        help="PGuest SSID",
+        default=DEFAULT_WIFI_SSID,
+    )
+    parser.add_argument('-i', '--wifi-interface',
+        help='Wi-Fi interface name',
+        default=DEFAULT_WIFI_INTERFACE,
+    )
+    parser.add_argument('-s', '--wifi-service',
+        help="Wi-Fi service name",
+        default=DEFAULT_WIFI_SERVICE,
+    )
+    parser.add_argument('-t', '--spoof-timeout',
+        help="Minimum time (seconds)  between MAC spoofing",
+        default=DEFAULT_SPOOF_TIMEOUT,
+    )
+    parser.add_argument('--no-mac-spoof',
+        help="Don't spoof the MAC address before auth",
+        default=False, action='store_true',
+    )
     parser.add_argument('-c', '--config',
         help='Path to username and password',
         default='~/.pguest',
@@ -139,6 +255,10 @@ if __name__ == "__main__":
 
     USERNAME = None
     PASSWORD = None
+    WIFI_INTERFACE = DEFAULT_WIFI_INTERFACE
+    WIFI_SERVICE = DEFAULT_WIFI_SERVICE
+    WIFI_SSID = DEFAULT_WIFI_SSID
+    SPOOF_TIMEOUT = DEFAULT_SPOOF_TIMEOUT
     SOURCE = None
 
     config_file = os.path.expanduser(args.config)
@@ -149,10 +269,20 @@ if __name__ == "__main__":
             with open(config_file) as f:
                 for line in f:
                     name, var = line.partition("=")[::2]
-                    if name.lower().strip() == "username":
-                        USERNAME = var.strip()
-                    elif name.lower().strip() == "password":
-                        PASSWORD = var.strip()
+                    name = name.lower().strip()
+                    var = var.strip()
+                    if name == "username":
+                        USERNAME = var
+                    elif name == "password":
+                        PASSWORD = var
+                    elif name == 'wifi_interface':
+                        WIFI_INTERFACE = var
+                    elif name == 'wifi_service':
+                        WIFI_SERVICE = var
+                    elif name == 'wifi_ssid':
+                        WIFI_SSID = var
+                    elif name == 'spoof_timeout':
+                        SPOOF_TIMEOUT = var
         except IOError:
             print "IOError on reading config file %s" % config_file
             exit(1)
@@ -160,6 +290,9 @@ if __name__ == "__main__":
         SOURCE = "args"
         USERNAME = args.username
         PASSWORD = args.password
+        WIFI_INTERFACE = args.wifi_interface
+        WIFI_SERVICE = args.wifi_service
+        WIFI_SSID = args.wifi_ssid
 
     if (USERNAME is None) or (PASSWORD is None):
         sys.stdout.write("Incomplete credentials specified by %s" % SOURCE)
@@ -171,6 +304,7 @@ if __name__ == "__main__":
 
     first_time = True
     last_auth = 0
+    last_spoof = 0
     debug = False
 
     while True:
@@ -182,6 +316,7 @@ if __name__ == "__main__":
             print u" \u2717: PGuest authentication required"
             print u" !: PGuest authentication failed (non-200 HTTP response)"
             print u" ?: Couldn't reach google.com, or the PGuest login page"
+            print u" -: Not connected to PGuest SSID"
             print ""
         elif (
                 ((time.time() - last_auth) > DEBUG_TIME) and
@@ -192,44 +327,53 @@ if __name__ == "__main__":
             print "Last auth was more than %d seconds ago," \
                 " disabling extra debuging information." % DEBUG_TIME
 
-        google_result = check_google(debug=debug)
-        if google_result == -1:
-            print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
+        if wifi_status(WIFI_SERVICE).get('SSID', None) == WIFI_SSID:
+            google_result = check_google(debug=debug)
+            if google_result == -1:
+                print u'\u2717 %s' % time.strftime('%Y-%m-%d %H:%M:%S')
 
-            if (
-                    ((time.time() - last_auth) < DEBUG_TIME) and
-                    (not debug)
-            ):
-                debug = True
-                print ""
-                print "Last auth was less than %d seconds ago," \
-                    " showing extra debuging information." % DEBUG_TIME
+                if (
+                        ((time.time() - last_auth) < DEBUG_TIME) and
+                        (not debug)
+                ):
+                    debug = True
+                    print ""
+                    print "Last auth was less than %d seconds ago," \
+                        " showing extra debuging information." % DEBUG_TIME
 
-            pguest_result = pguest_auth(debug=debug)
-            if pguest_result == -1:
-                sys.stdout.write('! ')
-                sys.stdout.flush()
-            elif pguest_result == 0:
-                last_auth = time.time()
-                sys.stdout.write("PGuest auth returned 200")
-                for i in range(0, SLEEP_TIME):
-                    time.sleep(1)
-                    sys.stdout.write(".")
+                pguest_result = pguest_auth(debug=debug)
+                if pguest_result == -1:
+                    sys.stdout.write('! ')
                     sys.stdout.flush()
-                print ""
-                continue
-            elif pguest_result == 2:
-                print ""
-                print "Login failed!"
-                print "Your credentials are incorrect or expired."
-                print ""
-                time.sleep(ERROR_BACKOFF)
-                continue
-        elif google_result == 0:
-            sys.stdout.write(u'\u2713 ')
-            sys.stdout.flush()
+                elif pguest_result == 0:
+                    last_auth = time.time()
+                    sys.stdout.write("PGuest auth returned 200")
+                    for i in range(0, SLEEP_TIME):
+                        time.sleep(1)
+                        sys.stdout.write(".")
+                        sys.stdout.flush()
+                    print ""
+                    continue
+                elif pguest_result == 2:
+                    print ""
+                    print "Login failed!"
+                    print "Your credentials are incorrect or expired."
+                    print ""
+                    time.sleep(ERROR_BACKOFF)
+                    continue
+            elif google_result == 0:
+                sys.stdout.write(u'\u2713 ')
+                sys.stdout.flush()
+            else:
+                sys.stdout.write('? ')
+                sys.stdout.flush()
+
+                time_since_spoof = time.time() - last_spoof
+                if not args.no_mac_spoof and time_since_spoof > SPOOF_TIMEOUT:
+                    if fix_ip(WIFI_INTERFACE, WIFI_SERVICE):
+                         last_spoof = time.time()
         else:
-            sys.stdout.write('? ')
+            sys.stdout.write('- ')
             sys.stdout.flush()
 
         time.sleep(SLEEP_TIME)  # XXX Todo: Make configurable
