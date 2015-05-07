@@ -24,6 +24,10 @@ DEFAULT_WIFI_SERVICE = 'Wi-Fi'
 DEFAULT_WIFI_SSID = 'PGuest'
 DEFAULT_SPOOF_TIMEOUT = 60  # 1min
 
+CHR_SPOOF = unichr(10558)
+CHR_WIFI_DOWN = unichr(10597)
+CHR_WIFI_UP = unichr(10595)
+
 AIRPORT_PATH = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
 
 # User data
@@ -128,7 +132,7 @@ def spoof_mac(interface_name):
     command_call = ['ifconfig', interface_name, 'ether', new_mac]
     try:
         subprocess.check_call(command_call)
-        sys.stdout.write(unichr(10558))
+        sys.stdout.write(CHR_SPOOF)
         sys.stdout.write(' ')
         return True
     except subprocess.CalledProcessError, e:
@@ -139,7 +143,7 @@ def spoof_mac(interface_name):
 def bounce_wifi(interface_name):
     command_call_prefix = ['networksetup', '-setairportpower', interface_name]
     try:
-        for wifi_status, char in (('off', unichr(10597)), ('on', unichr(10595))):
+        for wifi_status, char in (('off', CHR_WIFI_DOWN), ('on', CHR_WIFI_UP)):
             subprocess.check_call(command_call_prefix + [wifi_status])
             sys.stdout.write(char)
             sys.stdout.write(' ')
@@ -321,6 +325,9 @@ if __name__ == "__main__":
             print u" \u2717: PGuest authentication required"
             print u" !: PGuest authentication failed (non-200 HTTP response)"
             print u" ?: Couldn't reach google.com, or the PGuest login page"
+            print u" %s: MAC address spoofed" % CHR_SPOOF
+            print u" %s: Wi-Fi interface turned off" % CHR_WIFI_DOWN
+            print u" %s: Wi-Fi interface turned on" % CHR_WIFI_UP
             print u" -: Not connected to PGuest SSID"
             print ""
         elif (
